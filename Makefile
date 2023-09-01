@@ -1,7 +1,7 @@
 .PHONY: all clean install uninstall
 
-LINK = sudo g++ -std=c++20 -D_DEBUG -o
-COMPILE = sudo g++ -std=c++20 -g -D_DEBUG -c -o 
+LINK = sudo g++ -std=c++20 -o
+COMPILE = sudo g++ -std=c++20 -g -c -o 
 
 
 all: main

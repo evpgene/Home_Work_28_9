@@ -1,81 +1,115 @@
-
+#include <chrono>
+#include <future>
 #include <iostream>
+#include <thread>
 using namespace std;
 
+// по времени O(n*log n)
+//  по памяти O(n)
 
-//по времени O(n*log n)
-// по памяти O(n)
+const unsigned int max_numb_of_treads{std::thread::hardware_concurrency()};
+bool multithread = true;
 
-void merge(int* arr, int l, int m, int r)
-{
-    int nl = m - l + 1;
-    int nr = r - m;
+void merge(int* arr, long l, long m, long r) {
+  long number_elements_left = m - l + 1;
+  long number_elements_right = r - m;
 
-    // создаем временные массивы
-    int* left = new int[nl];
-    int* right = new int[nr];
+  // создаем временные массивы
+  long* left = new long[number_elements_left];
+  long* right = new long[number_elements_right];
 
-    // копируем данные во временные массивы
-    for (int i = 0; i < nl; i++)
-        left[i] = arr[l + i];
-    for (int j = 0; j < nr; j++)
-        right[j] = arr[m + 1 + j];
+  // копируем данные во временные массивы
+  for (long i = 0; i < number_elements_left; i++) left[i] = arr[l + i];
+  for (long j = 0; j < number_elements_right; j++) right[j] = arr[m + 1 + j];
 
-    int i = 0, j = 0;
-    int k = l;  // начало левой части
+  long i = 0, j = 0;
+  long k = l;  // начало левой части
 
-    while (i < nl && j < nr) {
-        // записываем минимальные элементы обратно во входной массив
-        if (left[i] <= right[j]) {
-            arr[k] = left[i];
-            i++;
-        }
-        else {
-            arr[k] = right[j];
-            j++;
-        }
-        k++;
+  while (i < number_elements_left && j < number_elements_right) {
+    // записываем минимальные элементы обратно во входной массив
+    if (left[i] <= right[j]) {
+      arr[k] = left[i];
+      i++;
+    } else {
+      arr[k] = right[j];
+      j++;
     }
-    // записываем оставшиеся элементы левой части
-    while (i < nl) {
-        arr[k] = left[i];
-        i++;
-        k++;
-    }
-    // записываем оставшиеся элементы правой части
-    while (j < nr) {
-        arr[k] = right[j];
-        j++;
-        k++;
-    }
+    k++;
+  }
+  // записываем оставшиеся элементы левой части
+  while (i < number_elements_left) {
+    arr[k] = left[i];
+    i++;
+    k++;
+  }
+  // записываем оставшиеся элементы правой части
+  while (j < number_elements_right) {
+    arr[k] = right[j];
+    j++;
+    k++;
+  }
 }
 
 /*
-int* arr - сортируемый массив
-int l - начало сортируемой части
-int r - конец сортируемой части
+long* arr - сортируемый массив
+long l - начало сортируемой части
+long r - конец сортируемой части
 */
-void mergeSort(int* arr, int l, int r)
-{
-    if (l >= r)
-        return; // выходим из рекурсии
-    int m = (l + r - 1) / 2;
-    mergeSort(arr, l, m);
+void mergeSort(int* arr, long l, long r) {
+  static long numb_of_threads{1};
+
+  if (l >= r) return;  // выходим из рекурсии
+  long m = (l + r - 1) / 2;
+
+  if ((numb_of_threads >= (max_numb_of_treads)) || (!multithread)) {
+    auto future_1 = async(launch::deferred, [&]() { mergeSort(arr, l, m); });
     mergeSort(arr, m + 1, r);
-    merge(arr, l, m, r);
+    future_1.wait();
+
+  } else {
+    numb_of_threads++;  // т. к. потоки добавляются только в одном плече - можно
+                        // не переживать о превышении числа потоков
+    auto future_1 = async(launch::async, [&]() { mergeSort(arr, l, m); });
+    mergeSort(arr, m + 1, r);
+    future_1.wait();
+  }
+
+  merge(arr, l, m, r);
 }
 
-int main()
-{
-	int ma = 10;
-	int  arr[12]{ 33, 36, 27, 15, 43, 35, 36, 42, 49, 21 };
-	int  output[12]{ 0 };
-    int  n = sizeof(arr) / sizeof(int);
+void make_merge() {
+  srand(0);
+  long arr_size = 10000000;
+  int* array = new int[arr_size];
+  for (long i = 0; i < arr_size; i++) {
+    array[i] = rand() % 500000;
+  }
 
-    mergeSort(arr, 0, 11);
+  time_t start, end;
 
-    for (int i = 0; i < n; i++)
-        std::cout << arr[i] << " ";
+  time(&start);
+  mergeSort(array, 0, arr_size - 1);
+  time(&end);
+  double duration = difftime(end, start);
 
-	return 0;
+  std::cout << "Hardware threads = " << max_numb_of_treads << std::endl;
+  std::cout << "Multithread = " << multithread << " Time: " << duration
+            << std::endl;
+
+  for (long i = 0; i < arr_size - 1; i++) {
+    if (array[i] > array[i + 1]) {
+      std::cout << "Unsorted" << std::endl;
+      break;
+    }
+  }
+
+  delete[] array;
+  return;
+};
+
+int main() {
+  make_merge();
+  multithread = false;
+  make_merge();
+  return 0;
 }
